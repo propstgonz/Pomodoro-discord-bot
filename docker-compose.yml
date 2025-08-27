@@ -1,0 +1,7 @@
+services:
+  discord-bots:
+    build: .
+    container_name: Pomodoro
+    restart: unless-stopped
+    volumes:
+      - ./config.json:/usr/src/app/config.json:ro

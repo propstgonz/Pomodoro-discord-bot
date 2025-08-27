@@ -1,0 +1,8 @@
+#Ignorar mi configuración de gitzen
+gitzen.config.json
+
+#Credenciales del bot pasra evitar trolling
+.env
+
+#Para que el puto microsoft no me llore porque le ocupo 20MB de su bbdd de git de billones de petabytes
+node_modules
