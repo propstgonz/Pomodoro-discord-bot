@@ -29,39 +29,38 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 (async () => {
     try {
         console.log('Refreshing application (/) commands...');
-
-        await rest.put(
-            Routes.applicationCommands(process.env.CLIENT_ID),
-            { body: commands },
-        );
-
+        await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
         console.log('Successfully reloaded application (/) commands.');
     } catch (error) {
         console.error(error);
     }
 })();
 
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
+
     const pomodoroCommand = client.commands.get('pomodoro');
-    if (pomodoroCommand && typeof pomodoroCommand.restoreTimers === 'function') {
-        pomodoroCommand.restoreTimers(client);
-        console.log(' Pomodoro timers restored.');
-    }
+    if (pomodoroCommand?.restoreTimers) await pomodoroCommand.restoreTimers(client);
+
+    const focusCommand = client.commands.get('focus-timer');
+    if (focusCommand?.restoreTimers) await focusCommand.restoreTimers(client);
+
+    console.log('Pomodoro and focus timers restored.');
 });
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     const command = client.commands.get(interaction.commandName);
-
     if (!command) return;
 
     try {
         await command.execute(interaction);
     } catch (error) {
         console.error(error);
-        await interaction.reply({ content: 'There was an error executing this command.', ephemeral: true });
+        if (!interaction.replied) {
+            await interaction.reply({ content: 'There was an error executing this command.', ephemeral: true });
+        }
     }
 });
 

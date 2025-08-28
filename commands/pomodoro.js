@@ -8,7 +8,10 @@ const POMODORO_FILE = path.join(DATA_DIR, 'pomodoros.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 if (!fs.existsSync(POMODORO_FILE)) fs.writeFileSync(POMODORO_FILE, '{}');
 
-let activePomodoros = JSON.parse(fs.readFileSync(POMODORO_FILE));
+let activePomodoros = {};
+try {
+    activePomodoros = JSON.parse(fs.readFileSync(POMODORO_FILE));
+} catch {}
 
 function savePomodoros() {
     fs.writeFileSync(POMODORO_FILE, JSON.stringify(activePomodoros, null, 2));
@@ -20,11 +23,6 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('pomodoro')
         .setDescription('Start or stop your personal Pomodoro timer.')
-        .addIntegerOption(option =>
-            option.setName('cycles')
-                .setDescription('Number of Pomodoro cycles you want to complete')
-                .setRequired(false)
-        )
         .addStringOption(option =>
             option.setName('action')
                 .setDescription('Start or stop your Pomodoro')
@@ -33,6 +31,11 @@ module.exports = {
                     { name: 'start', value: 'start' },
                     { name: 'stop', value: 'stop' }
                 )
+        )
+        .addIntegerOption(option =>
+            option.setName('cycles')
+                .setDescription('Number of Pomodoro cycles you want to complete')
+                .setRequired(false)
         ),
 
     async execute(interaction) {
@@ -109,8 +112,11 @@ module.exports = {
         startCycle();
     },
 
-    restoreTimers: (client) => {
+    restoreTimers: async (client) => {
         for (const [userId, state] of Object.entries(activePomodoros)) {
+            const user = await client.users.fetch(userId).catch(() => null);
+            if (!user) continue;
+
             const elapsed = Date.now() - state.startTime;
             let remaining;
 
@@ -122,13 +128,31 @@ module.exports = {
                 if (remaining < 0) remaining = 0;
             }
 
-            timers[userId] = {};
-            setTimeout(() => {
-                const user = client.users.cache.get(userId);
-                if (user) user.send(`Pomodoro timer alert!`);
-                state.phase = state.phase === 'work' ? 'break' : 'work';
-                state.startTime = Date.now();
-                savePomodoros();
+            timers[userId] = setTimeout(function cycle() {
+                if (!activePomodoros[userId]) return;
+
+                const s = activePomodoros[userId];
+                if (s.phase === 'work') {
+                    s.phase = 'break';
+                    s.startTime = Date.now();
+                    savePomodoros();
+                    user.send(`Cycle ${s.currentCycle}/${s.totalCycles}: Break time! 🎉`);
+                    timers[userId] = setTimeout(cycle, 10 * 60 * 1000);
+                } else {
+                    s.currentCycle++;
+                    if (s.currentCycle > s.totalCycles) {
+                        user.send(`All Pomodoro cycles completed!`);
+                        delete activePomodoros[userId];
+                        delete timers[userId];
+                        savePomodoros();
+                        return;
+                    }
+                    s.phase = 'work';
+                    s.startTime = Date.now();
+                    savePomodoros();
+                    user.send(`Cycle ${s.currentCycle}/${s.totalCycles}: 50 minutes of focus!`);
+                    timers[userId] = setTimeout(cycle, 50 * 60 * 1000);
+                }
             }, remaining);
         }
     }

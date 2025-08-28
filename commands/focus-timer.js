@@ -8,7 +8,10 @@ const TIMER_FILE = path.join(DATA_DIR, 'timers.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 if (!fs.existsSync(TIMER_FILE)) fs.writeFileSync(TIMER_FILE, '{}');
 
-let activeTimers = JSON.parse(fs.readFileSync(TIMER_FILE));
+let activeTimers = {};
+try {
+    activeTimers = JSON.parse(fs.readFileSync(TIMER_FILE));
+} catch {}
 
 function saveTimers() {
     fs.writeFileSync(TIMER_FILE, JSON.stringify(activeTimers, null, 2));
